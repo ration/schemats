@@ -29,7 +29,9 @@ export function generateTableInterface (tableNameRaw: string, tableDefinition: T
     const tableName = options.transformTypeName(tableNameRaw)
     let members = ''
     Object.keys(tableDefinition).map(c => options.transformColumnName(c)).forEach((columnName) => {
-        members += `${columnName}: ${tableName}Fields.${normalizeName(columnName, options)};\n`
+        let optional = tableDefinition[columnName].isSerial ? '?' : ''
+
+        members += `${columnName}${optional}: ${tableName}Fields.${normalizeName(columnName, options)};\n`
     })
 
     return `

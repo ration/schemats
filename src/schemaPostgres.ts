@@ -117,8 +117,27 @@ export class PostgresDatabase implements Database {
         return enums
     }
 
+    public async getSerialTypes(tableName: string, tableSchema: string): Promise<Set<string>> {
+        let serials: Set<string> = new Set();
+        type T = {attname: string}
+        await this.db.each<string>(
+            ` SELECT a.attname
+             FROM   pg_index     i 
+             JOIN   pg_attribute a ON a.attrelid = i.indrelid
+             WHERE  i.indrelid = '${tableSchema}.${tableName}'::regclass 
+             AND    i.indisprimary 
+             AND    a.attnum = ANY(i.indkey);`,
+            [],
+            (item: T) => {
+                serials.add(item.attname);
+            });
+         return serials;
+                            
+    }
+  
     public async getTableDefinition (tableName: string, tableSchema: string) {
         let tableDefinition: TableDefinition = {}
+        const serials = await this.getSerialTypes(tableName, tableSchema);
         type T = { column_name: string, udt_name: string, is_nullable: string }
         await this.db.each<T>(
             'SELECT column_name, udt_name, is_nullable ' +
@@ -128,7 +147,8 @@ export class PostgresDatabase implements Database {
             (schemaItem: T) => {
                 tableDefinition[schemaItem.column_name] = {
                     udtName: schemaItem.udt_name,
-                    nullable: schemaItem.is_nullable === 'YES'
+                    nullable: schemaItem.is_nullable === 'YES',
+                    isSerial: serials.has(schemaItem.column_name)
                 }
             })
         return tableDefinition
